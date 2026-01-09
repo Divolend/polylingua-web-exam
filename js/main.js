@@ -23,32 +23,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Load courses from API
 async function loadCourses() {
     try {
-        // Try to load from API first
-        try {
-            allCourses = await API.getCourses();
-            console.log('✅ Курсы загружены с API:', allCourses.length);
-        } catch (apiError) {
-            console.warn('⚠️ API недоступен (Mixed Content), используем тестовые данные');
-            // Use mock data as fallback
-            if (typeof MOCK_COURSES !== 'undefined') {
-                allCourses = MOCK_COURSES;
-                showNotification('ℹ️ Демонстрационный режим: показано 9 тестовых курсов', 'warning');
-            } else {
-                throw new Error('Тестовые данные не загружены');
-            }
-        }
-        
+        allCourses = await API.getCourses();
         filteredCourses = [...allCourses];
         displayCourses();
     } catch (error) {
-        console.error('❌ Критическая ошибка загрузки курсов:', error);
+        console.error('Error loading courses:', error);
         document.getElementById('courses-list').innerHTML = 
-            `<div class="col-12 text-center">
-                <div class="alert alert-danger" role="alert">
-                    <h5>❌ Ошибка загрузки курсов</h5>
-                    <p>${error.message}</p>
-                </div>
-            </div>`;
+            '<div class="col-12 text-center text-danger">Ошибка загрузки курсов</div>';
     }
 }
 
@@ -102,25 +83,8 @@ function displayCourses() {
 
 // Load tutors from API
 async function loadTutors() {
-    console.log('🔄 Начинаем загрузку репетиторов...');
-    
     try {
-        // Try to load from API first
-        try {
-            allTutors = await API.getTutors();
-            console.log('✅ Репетиторы загружены с API:', allTutors.length);
-        } catch (apiError) {
-            console.warn('⚠️ API недоступен (Mixed Content), используем тестовые данные');
-            // Use mock data as fallback
-            if (typeof MOCK_TUTORS !== 'undefined') {
-                allTutors = MOCK_TUTORS;
-                console.log('✅ Загружены тестовые репетиторы:', allTutors.length);
-            } else {
-                throw new Error('Тестовые данные не загружены. Проверьте подключение mock-data.js');
-            }
-        }
-        
-        console.log('📊 Всего репетиторов для отображения:', allTutors.length);
+        allTutors = await API.getTutors();
         
         // Populate language filter
         const languages = new Set();
@@ -128,36 +92,19 @@ async function loadTutors() {
             tutor.languages_offered.forEach(lang => languages.add(lang));
         });
         
-        console.log('🗣️ Найденные языки:', Array.from(languages));
-        
         const languageSelect = document.getElementById('tutor-language-search');
-        if (languageSelect) {
-            Array.from(languages).sort().forEach(lang => {
-                const option = document.createElement('option');
-                option.value = lang;
-                option.textContent = lang;
-                languageSelect.appendChild(option);
-            });
-            console.log('✅ Языки добавлены в фильтр');
-        }
+        Array.from(languages).sort().forEach(lang => {
+            const option = document.createElement('option');
+            option.value = lang;
+            option.textContent = lang;
+            languageSelect.appendChild(option);
+        });
         
         displayTutors(allTutors);
-        console.log('✅ Репетиторы отображены');
-        
     } catch (error) {
-        console.error('❌ Критическая ошибка загрузки репетиторов:', error);
-        const errorMessage = error.message || 'Неизвестная ошибка';
-        const tutorsList = document.getElementById('tutors-list');
-        if (tutorsList) {
-            tutorsList.innerHTML = 
-                `<tr><td colspan="6" class="text-center">
-                    <div class="alert alert-danger m-3" role="alert">
-                        <h5>❌ Ошибка загрузки репетиторов</h5>
-                        <p>${errorMessage}</p>
-                        <small>Проверьте консоль (F12) для подробностей</small>
-                    </div>
-                </td></tr>`;
-        }
+        console.error('Error loading tutors:', error);
+        document.getElementById('tutors-list').innerHTML = 
+            '<tr><td colspan="6" class="text-center text-danger">Ошибка загрузки репетиторов</td></tr>';
     }
 }
 
@@ -165,25 +112,10 @@ async function loadTutors() {
 function displayTutors(tutors) {
     const tbody = document.getElementById('tutors-list');
     
-    if (!tbody) {
-        console.error('❌ Элемент tutors-list не найден!');
+    if (tutors.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center">Репетиторы не найдены</td></tr>';
         return;
     }
-    
-    if (!tutors || tutors.length === 0) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="6" class="text-center">
-                    <div class="alert alert-info m-0" role="alert">
-                        Репетиторы не найдены
-                    </div>
-                </td>
-            </tr>
-        `;
-        return;
-    }
-    
-    console.log('📋 Отображение репетиторов:', tutors.length);
 
     tbody.innerHTML = tutors.map(tutor => `
         <tr class="${selectedTutor === tutor.id ? 'table-primary' : ''}" id="tutor-row-${tutor.id}">
@@ -234,17 +166,7 @@ async function openOrderModal(id, type) {
     
     try {
         if (type === 'course') {
-            // Try to get course from API, fallback to local array
-            try {
-                selectedCourse = await API.getCourseById(id);
-            } catch (apiError) {
-                console.warn('⚠️ API недоступен, ищем курс в MOCK_COURSES');
-                selectedCourse = allCourses.find(c => c.id === id);
-                if (!selectedCourse) {
-                    throw new Error('Курс не найден');
-                }
-            }
-            
+            selectedCourse = await API.getCourseById(id);
             document.getElementById('order-course-id').value = id;
             document.getElementById('order-tutor-id').value = '';
             document.getElementById('order-course-name').value = selectedCourse.name;
@@ -269,10 +191,6 @@ async function openOrderModal(id, type) {
             
         } else if (type === 'tutor') {
             const tutor = allTutors.find(t => t.id === id);
-            
-            if (!tutor) {
-                throw new Error('Репетитор не найден');
-            }
             
             // Create a pseudo-course object for tutors to use in price calculation
             selectedCourse = {
@@ -301,7 +219,7 @@ async function openOrderModal(id, type) {
         modal.show();
     } catch (error) {
         console.error('Error opening modal:', error);
-        showNotification(`❌ Ошибка при открытии формы заявки: ${error.message}`, 'danger');
+        showNotification('Ошибка при открытии формы заявки', 'danger');
     }
 }
 
@@ -572,19 +490,17 @@ async function submitOrder() {
     }
     
     try {
-        const courseName = document.getElementById('order-course-name').value;
-        
         if (orderId) {
             await API.updateOrder(orderId, orderData);
-            showNotification(`✅ Заявка "${courseName}" успешно обновлена! Стоимость: ${price} руб.`, 'success');
+            showNotification('Заявка успешно обновлена', 'success');
         } else {
             await API.createOrder(orderData);
-            showNotification(`✅ Заявка "${courseName}" успешно создана! Стоимость: ${price} руб. Проверьте в личном кабинете.`, 'success');
+            showNotification('Заявка успешно создана', 'success');
         }
         
         bootstrap.Modal.getInstance(document.getElementById('orderModal')).hide();
     } catch (error) {
         console.error('Error submitting order:', error);
-        showNotification(`❌ Ошибка при оформлении заявки: ${error.message}`, 'danger');
+        showNotification('Ошибка при оформлении заявки: ' + error.message, 'danger');
     }
 }
