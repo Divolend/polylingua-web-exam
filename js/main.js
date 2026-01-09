@@ -102,8 +102,25 @@ function displayCourses() {
 
 // Load tutors from API
 async function loadTutors() {
+    console.log('🔄 Начинаем загрузку репетиторов...');
+    
     try {
-        allTutors = await API.getTutors();
+        // Try to load from API first
+        try {
+            allTutors = await API.getTutors();
+            console.log('✅ Репетиторы загружены с API:', allTutors.length);
+        } catch (apiError) {
+            console.warn('⚠️ API недоступен (Mixed Content), используем тестовые данные');
+            // Use mock data as fallback
+            if (typeof MOCK_TUTORS !== 'undefined') {
+                allTutors = MOCK_TUTORS;
+                console.log('✅ Загружены тестовые репетиторы:', allTutors.length);
+            } else {
+                throw new Error('Тестовые данные не загружены. Проверьте подключение mock-data.js');
+            }
+        }
+        
+        console.log('📊 Всего репетиторов для отображения:', allTutors.length);
         
         // Populate language filter
         const languages = new Set();
@@ -111,26 +128,36 @@ async function loadTutors() {
             tutor.languages_offered.forEach(lang => languages.add(lang));
         });
         
+        console.log('🗣️ Найденные языки:', Array.from(languages));
+        
         const languageSelect = document.getElementById('tutor-language-search');
-        Array.from(languages).sort().forEach(lang => {
-            const option = document.createElement('option');
-            option.value = lang;
-            option.textContent = lang;
-            languageSelect.appendChild(option);
-        });
+        if (languageSelect) {
+            Array.from(languages).sort().forEach(lang => {
+                const option = document.createElement('option');
+                option.value = lang;
+                option.textContent = lang;
+                languageSelect.appendChild(option);
+            });
+            console.log('✅ Языки добавлены в фильтр');
+        }
         
         displayTutors(allTutors);
+        console.log('✅ Репетиторы отображены');
+        
     } catch (error) {
-        console.error('Error loading tutors:', error);
+        console.error('❌ Критическая ошибка загрузки репетиторов:', error);
         const errorMessage = error.message || 'Неизвестная ошибка';
-        document.getElementById('tutors-list').innerHTML = 
-            `<tr><td colspan="6" class="text-center">
-                <div class="alert alert-warning" role="alert">
-                    <h5>⚠️ Не удалось загрузить репетиторов</h5>
-                    <p>Проверьте соединение с интернетом или попробуйте позже.</p>
-                    <small class="text-muted">Ошибка: ${errorMessage}</small>
-                </div>
-            </td></tr>`;
+        const tutorsList = document.getElementById('tutors-list');
+        if (tutorsList) {
+            tutorsList.innerHTML = 
+                `<tr><td colspan="6" class="text-center">
+                    <div class="alert alert-danger m-3" role="alert">
+                        <h5>❌ Ошибка загрузки репетиторов</h5>
+                        <p>${errorMessage}</p>
+                        <small>Проверьте консоль (F12) для подробностей</small>
+                    </div>
+                </td></tr>`;
+        }
     }
 }
 
@@ -138,10 +165,25 @@ async function loadTutors() {
 function displayTutors(tutors) {
     const tbody = document.getElementById('tutors-list');
     
-    if (tutors.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center">Репетиторы не найдены</td></tr>';
+    if (!tbody) {
+        console.error('❌ Элемент tutors-list не найден!');
         return;
     }
+    
+    if (!tutors || tutors.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center">
+                    <div class="alert alert-info m-0" role="alert">
+                        Репетиторы не найдены
+                    </div>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    console.log('📋 Отображение репетиторов:', tutors.length);
 
     tbody.innerHTML = tutors.map(tutor => `
         <tr class="${selectedTutor === tutor.id ? 'table-primary' : ''}" id="tutor-row-${tutor.id}">
@@ -192,7 +234,17 @@ async function openOrderModal(id, type) {
     
     try {
         if (type === 'course') {
-            selectedCourse = await API.getCourseById(id);
+            // Try to get course from API, fallback to local array
+            try {
+                selectedCourse = await API.getCourseById(id);
+            } catch (apiError) {
+                console.warn('⚠️ API недоступен, ищем курс в MOCK_COURSES');
+                selectedCourse = allCourses.find(c => c.id === id);
+                if (!selectedCourse) {
+                    throw new Error('Курс не найден');
+                }
+            }
+            
             document.getElementById('order-course-id').value = id;
             document.getElementById('order-tutor-id').value = '';
             document.getElementById('order-course-name').value = selectedCourse.name;
@@ -217,6 +269,10 @@ async function openOrderModal(id, type) {
             
         } else if (type === 'tutor') {
             const tutor = allTutors.find(t => t.id === id);
+            
+            if (!tutor) {
+                throw new Error('Репетитор не найден');
+            }
             
             // Create a pseudo-course object for tutors to use in price calculation
             selectedCourse = {
@@ -245,7 +301,7 @@ async function openOrderModal(id, type) {
         modal.show();
     } catch (error) {
         console.error('Error opening modal:', error);
-        showNotification('Ошибка при открытии формы заявки', 'danger');
+        showNotification(`❌ Ошибка при открытии формы заявки: ${error.message}`, 'danger');
     }
 }
 
