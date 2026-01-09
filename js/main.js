@@ -23,13 +23,32 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Load courses from API
 async function loadCourses() {
     try {
-        allCourses = await API.getCourses();
+        // Try to load from API first
+        try {
+            allCourses = await API.getCourses();
+            console.log('✅ Курсы загружены с API:', allCourses.length);
+        } catch (apiError) {
+            console.warn('⚠️ API недоступен (Mixed Content), используем тестовые данные');
+            // Use mock data as fallback
+            if (typeof MOCK_COURSES !== 'undefined') {
+                allCourses = MOCK_COURSES;
+                showNotification('ℹ️ Демонстрационный режим: показано 9 тестовых курсов', 'warning');
+            } else {
+                throw new Error('Тестовые данные не загружены');
+            }
+        }
+        
         filteredCourses = [...allCourses];
         displayCourses();
     } catch (error) {
-        console.error('Error loading courses:', error);
+        console.error('❌ Критическая ошибка загрузки курсов:', error);
         document.getElementById('courses-list').innerHTML = 
-            '<div class="col-12 text-center text-danger">Ошибка загрузки курсов</div>';
+            `<div class="col-12 text-center">
+                <div class="alert alert-danger" role="alert">
+                    <h5>❌ Ошибка загрузки курсов</h5>
+                    <p>${error.message}</p>
+                </div>
+            </div>`;
     }
 }
 
@@ -103,8 +122,15 @@ async function loadTutors() {
         displayTutors(allTutors);
     } catch (error) {
         console.error('Error loading tutors:', error);
+        const errorMessage = error.message || 'Неизвестная ошибка';
         document.getElementById('tutors-list').innerHTML = 
-            '<tr><td colspan="6" class="text-center text-danger">Ошибка загрузки репетиторов</td></tr>';
+            `<tr><td colspan="6" class="text-center">
+                <div class="alert alert-warning" role="alert">
+                    <h5>⚠️ Не удалось загрузить репетиторов</h5>
+                    <p>Проверьте соединение с интернетом или попробуйте позже.</p>
+                    <small class="text-muted">Ошибка: ${errorMessage}</small>
+                </div>
+            </td></tr>`;
     }
 }
 
